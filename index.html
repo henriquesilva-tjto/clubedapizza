@@ -21,8 +21,8 @@ textarea{min-height:70px;resize:vertical}
 .pizza{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
 .pizza-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.price{font-weight:800}
 .flavors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
-.flavor{border:1px solid #d4d4d8;border-radius:10px;padding:10px;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:14px}
-.flavor input{width:auto}
+.flavor{border:1px solid #d4d4d8;border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.flavor input{margin-right:6px}
 .items{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f0}
 .qty{display:flex;align-items:center;justify-content:flex-end;gap:6px}.qty button{width:32px;height:32px;border:1px solid #d4d4d8;border-radius:8px;background:#fff;font-size:18px}
 .total{display:flex;justify-content:space-between;font-size:20px;font-weight:900;padding-top:12px}.muted{color:var(--muted);font-size:12px}
@@ -48,11 +48,11 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
   </div>
 </header>
 <main class="no-print">
-  <!-- MÓDULO IMPORTAR WHATSAPP -->
   <div class="card" style="border: 1px solid #10b981; background: #f0fdf4;">
     <h2 style="color: #047857;">📲 Importação Rápida WhatsApp</h2>
     <button class="wa" onclick="pasteFromClipboard()">📋 PEGAR DO WHATSAPP E PREENCHER</button>
-    <textarea id="waText" style="margin-top:8px; display:none;" placeholder="Texto importado aparecerá aqui..."></textarea>
+    <textarea id="waText" style="margin-top:8px;" placeholder="Ou cole o texto da mensagem do cliente diretamente aqui..."></textarea>
+    <button class="secondary" style="width:100%; margin-top:6px;" onclick="parseWhatsAppText()">Processar Texto Acima</button>
   </div>
 
   <div class="card">
@@ -65,7 +65,7 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
   </div>
 
   <div class="card">
-    <div class="section-title"><h2>2. Pizzas</h2><span class="muted">Até 2 sabores em M e G</span></div>
+    <div class="section-title"><h2>2. Pizzas</h2><span class="muted">Preço automático pelo maior valor</span></div>
     <div id="pizzas"></div>
   </div>
 
@@ -86,16 +86,8 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
   </div>
 
   <div class="card">
-    <h2>Configuração rápida do cardápio</h2>
-    <div class="grid">
-      <div><label>Pizza P — preço</label><input id="cfgP" type="number" step="0.01"></div>
-      <div><label>Pizza M — preço</label><input id="cfgM" type="number" step="0.01"></div>
-      <div><label>Pizza G — preço</label><input id="cfgG" type="number" step="0.01"></div>
-      <div><label>Nome da pizzaria</label><input id="cfgStore"></div>
-    </div>
-    <div style="margin-top:10px"><label>Sabores (um por linha)</label><textarea id="cfgFlavors"></textarea></div>
-    <div style="margin-top:10px"><label>Bebidas/outros produtos (NOME|PREÇO)</label><textarea id="cfgExtras"></textarea></div>
-    <button class="primary" style="margin-top:10px" onclick="saveConfig()">SALVAR CARDÁPIO</button>
+    <h2>Cardápio e Preços Gravados</h2>
+    <div class="muted">Os produtos foram atualizados com base no cardápio oficial do Clube da Pizza.</div>
   </div>
 
   <div class="card">
@@ -108,19 +100,47 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
 <div id="toast"></div>
 
 <script>
-const defaultMenu={
- pizzas:[{id:'P',name:'Pizza P',price:37,max:1},{id:'M',name:'Pizza M',price:62,max:2},{id:'G',name:'Pizza G',price:75,max:2}],
- flavors:['CALABRESA','CARNE DE SOL','FRANGO','PORTUGUESA','CAIPIRA','MARGHERITA','MILHO COM BACON','QUATRO QUEIJOS'],
- extras:[{id:'coca-zero-2l',name:'COCA-COLA ZERO 2L',price:18},{id:'coca-2l',name:'COCA-COLA 2L',price:18},{id:'guarana-2l',name:'GUARANÁ 2L',price:12},{id:'agua',name:'ÁGUA',price:4}],
- store:'CLUBE DA PIZZA'
+const defaultMenu = {
+  pizzas: [
+    { id: 'P', name: 'Pizza P', max: 1 },
+    { id: 'M', name: 'Pizza M', max: 2 },
+    { id: 'G', name: 'Pizza G', max: 2 }
+  ],
+  flavors: [
+    { name: 'CALABRESA', P: 37, M: 53, G: 70 },
+    { name: 'VEGETARIANA', P: 37, M: 53, G: 70 },
+    { name: 'MUSSARELA', P: 37, M: 53, G: 70 },
+    { name: 'ROMEU E JULIETA', P: 37, M: 53, G: 70 },
+    { name: 'CAIPIRA', P: 40, M: 56, G: 73 },
+    { name: 'PORTUGUESA', P: 40, M: 56, G: 73 },
+    { name: 'QUATRO QUEIJOS', P: 40, M: 56, G: 73 },
+    { name: 'CARNE DE SOL C/ BANANA', P: 45, M: 62, G: 80 },
+    { name: 'CARNE DE SOL C/ CHAMPIGNON', P: 45, M: 62, G: 80 }
+  ],
+  extras: [
+    { id: 'coca-1l', name: 'COCA-COLA 1L', price: 11 },
+    { id: 'coca-zero-1l', name: 'COCA-COLA ZERO 1L', price: 11 },
+    { id: 'coca-2l', name: 'COCA-COLA 2L', price: 18 },
+    { id: 'coca-zero-2l', name: 'COCA-COLA ZERO 2L', price: 18 },
+    { id: 'fanta-2l', name: 'FANTA LARANJA 2L', price: 13 },
+    { id: 'kuat-2l', name: 'GUARANÁ KUAT 2L', price: 13 },
+    { id: 'lata-coca', name: 'LATA COCA-COLA 350ML', price: 6 },
+    { id: 'lata-coca-zero', name: 'LATA COCA-COLA ZERO 350ML', price: 6 },
+    { id: 'lata-fanta', name: 'LATA FANTA LARANJA 350ML', price: 6 },
+    { id: 'lata-kuat', name: 'LATA GUARANÁ KUAT 350ML', price: 6 },
+    { id: 'add-catupiry-p', name: 'ADC. CATUPIRY / CHEDDAR (P)', price: 3 },
+    { id: 'add-catupiry-m', name: 'ADC. CATUPIRY / CHEDDAR (M)', price: 5 },
+    { id: 'add-catupiry-g', name: 'ADC. CATUPIRY / CHEDDAR (G)', price: 7 }
+  ],
+  store: 'CLUBE DA PIZZA'
 };
 
-let menu=JSON.parse(localStorage.getItem('pizza_menu_v2')||'null')||defaultMenu;
-let pizzas=menu.pizzas, flavors=menu.flavors, extras=menu.extras;
-let state={pizzas:{},extras:{}};
-let btDevice=null, btCharacteristic=null;
+let menu = defaultMenu;
+let pizzas = menu.pizzas, flavors = menu.flavors, extras = menu.extras;
+let state = { pizzas: {}, extras: {} };
+let btDevice = null, btCharacteristic = null;
 
-const money=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const money = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function nextOrder(){
  const d=new Date(), key='pizza_last_'+d.toISOString().slice(0,10);
@@ -130,14 +150,31 @@ function nextOrder(){
 }
 document.getElementById('orderNo').value=nextOrder();
 
+function getPizzaPrice(size, selectedFlavorNames) {
+  if (!selectedFlavorNames || selectedFlavorNames.length === 0) return 0;
+  let maxP = 0;
+  selectedFlavorNames.forEach(fn => {
+    const fObj = flavors.find(x => x.name === fn);
+    if (fObj && fObj[size] > maxP) {
+      maxP = fObj[size];
+    }
+  });
+  return maxP;
+}
+
 function renderPizzas(){
  const el=document.getElementById('pizzas'); el.innerHTML='';
  pizzas.forEach(p=>{
-  const selected=state.pizzas[p.id]?.flavors||[];
+  const selected = state.pizzas[p.id]?.flavors || [];
+  const pPrice = getPizzaPrice(p.id, selected);
   const box=document.createElement('div');box.className='pizza';
-  box.innerHTML=`<div class="pizza-head"><strong>${p.name}</strong><span class="price">${money(p.price)}</span></div>
+  box.innerHTML=`<div class="pizza-head"><strong>${p.name}</strong><span class="price">${pPrice > 0 ? money(pPrice) : 'A partir de ' + money(p.id==='P'?37:p.id==='M'?53:70)}</span></div>
   <div class="muted" style="margin-top:4px">Escolha ${p.max===1?'1 sabor':'até 2 sabores'}</div>
-  <div class="flavors">${flavors.map(f=>`<label class="flavor"><input type="checkbox" data-p="${p.id}" data-f="${f}" ${selected.includes(f)?'checked':''}>${f}</label>`).join('')}</div>`;
+  <div class="flavors">${flavors.map(f=>`
+    <label class="flavor">
+      <div><input type="checkbox" data-p="${p.id}" data-f="${f.name}" ${selected.includes(f.name)?'checked':''}><strong>${f.name}</strong></div>
+      <div class="muted">${money(f[p.id])}</div>
+    </label>`).join('')}</div>`;
   el.appendChild(box);
  });
  el.querySelectorAll('input[type=checkbox]').forEach(ch=>ch.addEventListener('change',e=>{
@@ -169,7 +206,13 @@ function changeExtra(id,delta){state.extras[id]=Math.max(0,(state.extras[id]||0)
 
 function lines(){
  const out=[];
- pizzas.forEach(p=>{const a=state.pizzas[p.id]?.flavors||[];if(a.length)out.push({text:`PIZZA ${p.id} - ${a.join(' / ')}`,price:p.price})});
+ pizzas.forEach(p=>{
+   const a=state.pizzas[p.id]?.flavors||[];
+   if(a.length) {
+     const price = getPizzaPrice(p.id, a);
+     out.push({text:`PIZZA ${p.id} - ${a.join(' / ')}`, price: price});
+   }
+ });
  extras.forEach(x=>{const q=state.extras[x.id]||0;for(let i=0;i<q;i++)out.push({text:x.name,price:x.price})});
  return out;
 }
@@ -185,16 +228,20 @@ function renderSummary(){
 async function pasteFromClipboard() {
   try {
     const text = await navigator.clipboard.readText();
-    document.getElementById('waText').value = text;
-    parseWhatsAppText();
+    if(text){
+      document.getElementById('waText').value = text;
+      parseWhatsAppText();
+    } else {
+      toast('Área de transferência vazia.');
+    }
   } catch (err) {
-    toast('Permissão de colar negada pelo navegador.');
+    toast('Selecione o texto da caixa e clique em Processar.');
   }
 }
 
 function parseWhatsAppText(){
  const raw = document.getElementById('waText').value;
- if(!raw.trim()){ toast('Nenhum texto capturado.'); return; }
+ if(!raw.trim()){ toast('Cole o texto da mensagem primeiro.'); return; }
  
  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
  let foundCustomer = '', foundObs = [];
@@ -202,35 +249,36 @@ function parseWhatsAppText(){
  state={pizzas:{},extras:{}};
 
  lines.forEach(line => {
-   const upper = line.toUpperCase();
+   const upper = line.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
    if(upper.includes('CLIENTE:')){
      foundCustomer = line.split(':')[1]?.trim() || '';
    }
 
-   if(upper.includes('OBS:') || upper.includes('ENTREGAR') || upper.includes('RUA')){
+   if(upper.includes('OBS:') || upper.includes('ENTREGAR') || upper.includes('RUA') || upper.includes('BAIRRO')){
      foundObs.push(line.replace(/OBS:/i, '').trim());
    }
 
    let pSize = null;
-   if(upper.includes('PIZZA G') || upper.includes(' G ') || upper.endsWith(' G')) pSize = 'G';
-   else if(upper.includes('PIZZA M') || upper.includes(' M ') || upper.endsWith(' M')) pSize = 'M';
-   else if(upper.includes('PIZZA P') || upper.includes(' P ') || upper.endsWith(' P')) pSize = 'P';
+   if(upper.includes('PIZZA G') || upper.includes(' G ') || upper.endsWith(' G') || upper.includes('GRANDE')) pSize = 'G';
+   else if(upper.includes('PIZZA M') || upper.includes(' M ') || upper.endsWith(' M') || upper.includes('MEDIA')) pSize = 'M';
+   else if(upper.includes('PIZZA P') || upper.includes(' P ') || upper.endsWith(' P') || upper.includes('PEQUENA')) pSize = 'P';
 
    if(pSize){
      state.pizzas[pSize] ||= {flavors:[]};
      flavors.forEach(f => {
-       if(upper.includes(f) && state.pizzas[pSize].flavors.length < (pSize === 'P' ? 1 : 2)){
-         if(!state.pizzas[pSize].flavors.includes(f)){
-           state.pizzas[pSize].flavors.push(f);
+       const fClean = f.name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+       if(upper.includes(fClean) && state.pizzas[pSize].flavors.length < (pSize === 'P' ? 1 : 2)){
+         if(!state.pizzas[pSize].flavors.includes(f.name)){
+           state.pizzas[pSize].flavors.push(f.name);
          }
        }
      });
    }
 
    extras.forEach(x => {
-     const nameClean = x.name.replace(/-/g, ' ');
-     if(upper.includes(nameClean) || upper.includes(x.name)){
+     const nameClean = x.name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/-/g, ' ');
+     if(upper.includes(nameClean)){
        const matchQty = line.match(/(\d+)\s*x?/i);
        const qty = matchQty ? parseInt(matchQty[1]) : 1;
        state.extras[x.id] = (state.extras[x.id] || 0) + qty;
@@ -244,7 +292,7 @@ function parseWhatsAppText(){
  renderPizzas();
  renderExtras();
  renderSummary();
- toast('Pedido capturado com sucesso!');
+ toast('Texto processado com sucesso!');
 }
 
 function buildTicketText(){
@@ -388,30 +436,6 @@ function clearOrder(){
 
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2500)}
 
-function loadConfigUI(){
- document.getElementById('cfgP').value=pizzas.find(x=>x.id==='P').price;
- document.getElementById('cfgM').value=pizzas.find(x=>x.id==='M').price;
- document.getElementById('cfgG').value=pizzas.find(x=>x.id==='G').price;
- document.getElementById('cfgStore').value=menu.store||'CLUBE DA PIZZA';
- document.getElementById('cfgFlavors').value=flavors.join('\n');
- document.getElementById('cfgExtras').value=extras.map(x=>x.name+'|'+x.price).join('\n');
-}
-
-function saveConfig(){
- pizzas.find(x=>x.id==='P').price=Number(document.getElementById('cfgP').value)||37;
- pizzas.find(x=>x.id==='M').price=Number(document.getElementById('cfgM').value)||62;
- pizzas.find(x=>x.id==='G').price=Number(document.getElementById('cfgG').value)||75;
- menu.store=document.getElementById('cfgStore').value.trim()||'CLUBE DA PIZZA';
- menu.flavors=document.getElementById('cfgFlavors').value.split('\n').map(x=>x.trim().toUpperCase()).filter(Boolean);
- menu.extras=document.getElementById('cfgExtras').value.split('\n').map((x,i)=>{let p=x.split('|');return {id:'custom-'+i,name:(p[0]||'').trim().toUpperCase(),price:Number((p[1]||0).replace(',','.'))||0}}).filter(x=>x.name);
- pizzas=menu.pizzas;flavors=menu.flavors;extras=menu.extras;
- localStorage.setItem('pizza_menu_v2',JSON.stringify(menu));
- renderPizzas();renderExtras();renderSummary();loadConfigUI();
- document.getElementById('appTitle').textContent = '🍕 ' + menu.store;
- toast('Cardápio salvo.');
-}
-
-loadConfigUI();
 renderPizzas();renderExtras();renderSummary();renderHistory();
 </script>
 </body>
