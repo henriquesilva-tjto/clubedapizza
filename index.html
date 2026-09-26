@@ -74,6 +74,21 @@ button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;pad
   </div>
 
   <div class="card">
+    <h2>Configuração rápida do cardápio</h2>
+    <div class="grid">
+      <div><label>Pizza P — preço</label><input id="cfgP" type="number" step="0.01"></div>
+      <div><label>Pizza M — preço</label><input id="cfgM" type="number" step="0.01"></div>
+      <div><label>Pizza G — preço</label><input id="cfgG" type="number" step="0.01"></div>
+      <div><label>Nome da pizzaria</label><input id="cfgStore"></div>
+    </div>
+    <div style="margin-top:10px"><label>Sabores (um por linha)</label><textarea id="cfgFlavors"></textarea></div>
+    <div style="margin-top:10px"><label>Bebidas/outros produtos — um por linha no formato NOME|PREÇO</label><textarea id="cfgExtras" placeholder="COCA COLA ZERO 2L|18
+COCA COLA 2L|18"></textarea></div>
+    <button class="primary" style="margin-top:10px" onclick="saveConfig()">SALVAR CARDÁPIO</button>
+    <div class="muted" style="margin-top:8px">Nesta V2 as configurações ficam gravadas somente neste navegador/aparelho.</div>
+  </div>
+
+  <div class="card">
     <h2>Pedidos recentes</h2>
     <div id="history"></div>
   </div>
@@ -83,18 +98,14 @@ button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;pad
 <div id="toast"></div>
 
 <script>
-const pizzas = [
- {id:'P', name:'Pizza P', price:37, max:1},
- {id:'M', name:'Pizza M', price:62, max:2},
- {id:'G', name:'Pizza G', price:75, max:2}
-];
-const flavors = ['CALABRESA','CARNE DE SOL','FRANGO','PORTUGUESA','CAIPIRA','MARGHERITA','MILHO COM BACON','QUATRO QUEIJOS'];
-const extras = [
- {id:'coca-zero-2l',name:'COCA-COLA ZERO 2L',price:18},
- {id:'coca-2l',name:'COCA-COLA 2L',price:18},
- {id:'guarana-2l',name:'GUARANÁ 2L',price:12},
- {id:'agua',name:'ÁGUA',price:4}
-];
+const defaultMenu={
+ pizzas:[{id:'P',name:'Pizza P',price:37,max:1},{id:'M',name:'Pizza M',price:62,max:2},{id:'G',name:'Pizza G',price:75,max:2}],
+ flavors:['CALABRESA','CARNE DE SOL','FRANGO','PORTUGUESA','CAIPIRA','MARGHERITA','MILHO COM BACON','QUATRO QUEIJOS'],
+ extras:[{id:'coca-zero-2l',name:'COCA-COLA ZERO 2L',price:18},{id:'coca-2l',name:'COCA-COLA 2L',price:18},{id:'guarana-2l',name:'GUARANÁ 2L',price:12},{id:'agua',name:'ÁGUA',price:4}],
+ store:'PIZZARIA'
+};
+let menu=JSON.parse(localStorage.getItem('pizza_menu_v2')||'null')||defaultMenu;
+let pizzas=menu.pizzas, flavors=menu.flavors, extras=menu.extras;
 let state={pizzas:{},extras:{}};
 
 const money=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -192,6 +203,26 @@ function renderHistory(){
 }
 function clearOrder(){state={pizzas:{},extras:{}};document.getElementById('orderNo').value=nextOrder();document.getElementById('customer').value='';document.getElementById('note').value='';renderPizzas();renderExtras();renderSummary()}
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)}
+function loadConfigUI(){
+ document.getElementById('cfgP').value=pizzas.find(x=>x.id==='P').price;
+ document.getElementById('cfgM').value=pizzas.find(x=>x.id==='M').price;
+ document.getElementById('cfgG').value=pizzas.find(x=>x.id==='G').price;
+ document.getElementById('cfgStore').value=menu.store||'PIZZARIA';
+ document.getElementById('cfgFlavors').value=flavors.join('\n');
+ document.getElementById('cfgExtras').value=extras.map(x=>x.name+'|'+x.price).join('\n');
+}
+function saveConfig(){
+ pizzas.find(x=>x.id==='P').price=Number(document.getElementById('cfgP').value)||37;
+ pizzas.find(x=>x.id==='M').price=Number(document.getElementById('cfgM').value)||62;
+ pizzas.find(x=>x.id==='G').price=Number(document.getElementById('cfgG').value)||75;
+ menu.store=document.getElementById('cfgStore').value.trim()||'PIZZARIA';
+ menu.flavors=document.getElementById('cfgFlavors').value.split('\n').map(x=>x.trim().toUpperCase()).filter(Boolean);
+ menu.extras=document.getElementById('cfgExtras').value.split('\n').map((x,i)=>{let p=x.split('|');return {id:'custom-'+i,name:(p[0]||'').trim().toUpperCase(),price:Number((p[1]||0).replace(',','.'))||0}}).filter(x=>x.name);
+ pizzas=menu.pizzas;flavors=menu.flavors;extras=menu.extras;
+ localStorage.setItem('pizza_menu_v2',JSON.stringify(menu));
+ renderPizzas();renderExtras();renderSummary();loadConfigUI();toast('Cardápio salvo neste aparelho.');
+}
+loadConfigUI();
 renderPizzas();renderExtras();renderSummary();renderHistory();
 </script>
 </body>
