@@ -6,12 +6,11 @@
 <meta name="theme-color" content="#111111">
 <title>Pedidos • Clube da Pizza</title>
 <style>
-:root{--bg:#f4f4f5;--card:#fff;--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--accent:#111827;--ok:#15803d;--danger:#b91c1c}
+:root{--bg:#f4f4f5;--card:#fff;--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--accent:#111827;--ok:#15803d;--danger:#b91c1c;--wa:#25d366}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 header{background:#111;color:#fff;padding:16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px #0002}
 .header-row{max-width:900px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
-h1{font-size:20px;margin:0}.badge{font-size:12px;background:#27272a;padding:6px 9px;border-radius:999px;cursor:pointer}
-.badge.connected{background:#15803d;color:#fff}
+h1{font-size:20px;margin:0}
 main{max-width:900px;margin:0 auto;padding:14px 14px 100px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:14px;box-shadow:0 1px 3px #0000000b}
 h2{font-size:16px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
@@ -30,6 +29,7 @@ textarea{min-height:70px;resize:vertical}
 button.primary{width:100%;border:0;border-radius:12px;background:#111;color:#fff;padding:14px;font-weight:800;font-size:16px;cursor:pointer}
 button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;padding:10px 12px;font-weight:700;cursor:pointer}
 button.bt{background:#2563eb;color:#fff;border:0;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px;font-weight:800;width:100%;cursor:pointer;margin-top:8px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#18181b;color:#fff;padding:10px 14px;border-radius:999px;display:none;z-index:20;font-size:13px}
 .history-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:10px 0;font-size:14px}
@@ -48,13 +48,21 @@ button.bt{background:#2563eb;color:#fff;border:0;padding:8px 12px;border-radius:
   </div>
 </header>
 <main class="no-print">
+  <!-- MÓDULO IMPORTAR WHATSAPP -->
+  <div class="card" style="border: 1px solid #10b981; background: #f0fdf4;">
+    <h2 style="color: #047857;">📲 Importar do WhatsApp</h2>
+    <label>Cole o texto da mensagem do cliente aqui:</label>
+    <textarea id="waText" placeholder="Exemplo:&#10;Nome: João&#10;Pizza G Calabresa e Frango&#10;1 Coca Zero 2L&#10;Obs: Pouca cebola"></textarea>
+    <button class="wa" onclick="parseWhatsAppText()">PROCESSAR E PREENCHER</button>
+  </div>
+
   <div class="card">
     <h2>1. Dados do pedido</h2>
     <div class="grid">
       <div><label>Nº do pedido</label><input id="orderNo" inputmode="numeric"></div>
       <div><label>Nome do cliente</label><input id="customer" placeholder="Ex.: João"></div>
     </div>
-    <div style="margin-top:10px"><label>Observação</label><textarea id="note" placeholder="Ex.: sem cebola, retirar tomate..."></textarea></div>
+    <div style="margin-top:10px"><label>Observação / Endereço</label><textarea id="note" placeholder="Ex.: sem cebola, entregar na Rua 2..."></textarea></div>
   </div>
 
   <div class="card">
@@ -175,6 +183,68 @@ function renderSummary(){
  document.getElementById('total').textContent=money(total());
 }
 
+function parseWhatsAppText(){
+ const raw = document.getElementById('waText').value;
+ if(!raw.trim()){ toast('Cole o texto da mensagem primeiro.'); return; }
+ 
+ const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+ let foundCustomer = '', foundObs = [];
+ 
+ // Reinicia seleção
+ state={pizzas:{},extras:{}};
+
+ lines.forEach(line => {
+   const upper = line.toUpperCase();
+
+   // Identifica Nome
+   if(upper.includes('NOME:') || upper.includes('CLIENTE:')){
+     foundCustomer = line.split(':')[1]?.trim() || '';
+   } else if(!foundCustomer && !upper.includes('PIZZA') && !upper.includes('OBS') && lines.indexOf(line)===0){
+     foundCustomer = line;
+   }
+
+   // Identifica Observação
+   if(upper.includes('OBS:') || upper.includes('ENTREGAR') || upper.includes('RUA')){
+     foundObs.push(line.replace(/OBS:/i, '').trim());
+   }
+
+   // Identifica Tamanho da Pizza
+   let pSize = null;
+   if(upper.includes('PIZZA G') || upper.includes(' G ') || upper.endsWith(' G')) pSize = 'G';
+   else if(upper.includes('PIZZA M') || upper.includes(' M ') || upper.endsWith(' M')) pSize = 'M';
+   else if(upper.includes('PIZZA P') || upper.includes(' P ') || upper.endsWith(' P')) pSize = 'P';
+
+   if(pSize){
+     state.pizzas[pSize] ||= {flavors:[]};
+     flavors.forEach(f => {
+       if(upper.includes(f) && state.pizzas[pSize].flavors.length < (pSize === 'P' ? 1 : 2)){
+         if(!state.pizzas[pSize].flavors.includes(f)){
+           state.pizzas[pSize].flavors.push(f);
+         }
+       }
+     });
+   }
+
+   // Identifica Bebidas / Extras
+   extras.forEach(x => {
+     const nameClean = x.name.replace(/-/g, ' ');
+     if(upper.includes(nameClean) || upper.includes(x.name)){
+       const matchQty = line.match(/(\d+)\s*x?/i);
+       const qty = matchQty ? parseInt(matchQty[1]) : 1;
+       state.extras[x.id] = (state.extras[x.id] || 0) + qty;
+     }
+   });
+ });
+
+ if(foundCustomer) document.getElementById('customer').value = foundCustomer;
+ if(foundObs.length) document.getElementById('note').value = foundObs.join(' | ');
+
+ renderPizzas();
+ renderExtras();
+ renderSummary();
+ toast('Texto do WhatsApp processado!');
+}
+
 function buildTicketText(){
  const no=document.getElementById('orderNo').value.trim()||'---';
  const customer=document.getElementById('customer').value.trim()||'NAO INFORMADO';
@@ -247,17 +317,14 @@ async function sendBT(text) {
  if (!btCharacteristic) return false;
  try {
    const encoder = new TextEncoder();
-   // ESC/POS Reset + Texto em Byte Array
    const init = new Uint8Array([27, 64]);
    await btCharacteristic.writeValue(init);
    const data = encoder.encode(text);
    
-   // Envia em blocos de 20 bytes (limite padrão do Bluetooth LE)
    for (let i = 0; i < data.length; i += 20) {
      const chunk = data.slice(i, i + 20);
      await btCharacteristic.writeValue(chunk);
    }
-   // Corte do papel / avanço de linha ESC/POS
    const cut = new Uint8Array([27, 100, 4]);
    await btCharacteristic.writeValue(cut);
    return true;
@@ -306,7 +373,17 @@ function renderHistory(){
  el.innerHTML=h.length?h.slice(0,10).map(x=>`<div class="history-row"><span><strong>#${x.no}</strong> ${x.customer}<br><span class="muted">${new Date(x.date).toLocaleString('pt-BR')}</span></span><strong>${money(x.total)}</strong></div>`).join(''):'<span class="muted">Nenhum pedido registrado.</span>';
 }
 
-function clearOrder(){state={pizzas:{},extras:{}};document.getElementById('orderNo').value=nextOrder();document.getElementById('customer').value='';document.getElementById('note').value='';renderPizzas();renderExtras();renderSummary()}
+function clearOrder(){
+ state={pizzas:{},extras:{}};
+ document.getElementById('orderNo').value=nextOrder();
+ document.getElementById('customer').value='';
+ document.getElementById('note').value='';
+ document.getElementById('waText').value='';
+ renderPizzas();
+ renderExtras();
+ renderSummary();
+}
+
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2500)}
 
 function loadConfigUI(){
