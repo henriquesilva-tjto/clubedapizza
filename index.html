@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111111">
-<title>Pedidos • Pizzaria</title>
+<title>Pedidos • Clube da Pizza</title>
 <style>
 :root{--bg:#f4f4f5;--card:#fff;--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--accent:#111827;--ok:#15803d;--danger:#b91c1c}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 header{background:#111;color:#fff;padding:16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px #0002}
 .header-row{max-width:900px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:10px}
-h1{font-size:20px;margin:0}.badge{font-size:12px;background:#27272a;padding:6px 9px;border-radius:999px}
+h1{font-size:20px;margin:0}.badge{font-size:12px;background:#27272a;padding:6px 9px;border-radius:999px;cursor:pointer}
+.badge.connected{background:#15803d;color:#fff}
 main{max-width:900px;margin:0 auto;padding:14px 14px 100px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:14px;box-shadow:0 1px 3px #0000000b}
 h2{font-size:16px;margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}}
@@ -22,15 +23,15 @@ textarea{min-height:70px;resize:vertical}
 .pizza-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.price{font-weight:800}
 .flavors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
 .flavor{border:1px solid #d4d4d8;border-radius:10px;padding:10px;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:14px}
-.flavor input{width:auto}.flavor.disabled{opacity:.45}
+.flavor input{width:auto}
 .items{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f0}
 .qty{display:flex;align-items:center;justify-content:flex-end;gap:6px}.qty button{width:32px;height:32px;border:1px solid #d4d4d8;border-radius:8px;background:#fff;font-size:18px}
 .total{display:flex;justify-content:space-between;font-size:20px;font-weight:900;padding-top:12px}.muted{color:var(--muted);font-size:12px}
 button.primary{width:100%;border:0;border-radius:12px;background:#111;color:#fff;padding:14px;font-weight:800;font-size:16px;cursor:pointer}
 button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;padding:10px 12px;font-weight:700;cursor:pointer}
+button.bt{background:#2563eb;color:#fff;border:0;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#18181b;color:#fff;padding:10px 14px;border-radius:999px;display:none;z-index:20;font-size:13px}
-.ticket{font-family:monospace;white-space:pre-wrap;line-height:1.25}
 .history-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:10px 0;font-size:14px}
 @media print{
  body{background:#fff}.no-print{display:none!important}.print-only{display:block!important}
@@ -40,7 +41,12 @@ button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;pad
 </style>
 </head>
 <body>
-<header class="no-print"><div class="header-row"><h1>🍕 Pedidos • Pizzaria</h1><span class="badge">JP58H • 58 mm</span></div></header>
+<header class="no-print">
+  <div class="header-row">
+    <h1 id="appTitle">🍕 Clube da Pizza</h1>
+    <button id="btConnectBtn" class="bt" onclick="connectBT()">🛜 Conectar JP58H</button>
+  </div>
+</header>
 <main class="no-print">
   <div class="card">
     <h2>1. Dados do pedido</h2>
@@ -70,7 +76,6 @@ button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;pad
       <button class="secondary" onclick="printPreview()">Pré-visualizar</button>
     </div>
     <button class="primary" style="margin-top:10px" onclick="finalizeOrder()">FINALIZAR E IMPRIMIR</button>
-    <p class="muted" style="margin-bottom:0">A primeira versão imprime pelo diálogo do navegador. Na etapa Bluetooth, vamos integrar o envio ESC/POS para a JP58H.</p>
   </div>
 
   <div class="card">
@@ -82,10 +87,8 @@ button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;pad
       <div><label>Nome da pizzaria</label><input id="cfgStore"></div>
     </div>
     <div style="margin-top:10px"><label>Sabores (um por linha)</label><textarea id="cfgFlavors"></textarea></div>
-    <div style="margin-top:10px"><label>Bebidas/outros produtos — um por linha no formato NOME|PREÇO</label><textarea id="cfgExtras" placeholder="COCA COLA ZERO 2L|18
-COCA COLA 2L|18"></textarea></div>
+    <div style="margin-top:10px"><label>Bebidas/outros produtos (NOME|PREÇO)</label><textarea id="cfgExtras"></textarea></div>
     <button class="primary" style="margin-top:10px" onclick="saveConfig()">SALVAR CARDÁPIO</button>
-    <div class="muted" style="margin-top:8px">Nesta V2 as configurações ficam gravadas somente neste navegador/aparelho.</div>
   </div>
 
   <div class="card">
@@ -102,13 +105,16 @@ const defaultMenu={
  pizzas:[{id:'P',name:'Pizza P',price:37,max:1},{id:'M',name:'Pizza M',price:62,max:2},{id:'G',name:'Pizza G',price:75,max:2}],
  flavors:['CALABRESA','CARNE DE SOL','FRANGO','PORTUGUESA','CAIPIRA','MARGHERITA','MILHO COM BACON','QUATRO QUEIJOS'],
  extras:[{id:'coca-zero-2l',name:'COCA-COLA ZERO 2L',price:18},{id:'coca-2l',name:'COCA-COLA 2L',price:18},{id:'guarana-2l',name:'GUARANÁ 2L',price:12},{id:'agua',name:'ÁGUA',price:4}],
- store:'PIZZARIA'
+ store:'CLUBE DA PIZZA'
 };
+
 let menu=JSON.parse(localStorage.getItem('pizza_menu_v2')||'null')||defaultMenu;
 let pizzas=menu.pizzas, flavors=menu.flavors, extras=menu.extras;
 let state={pizzas:{},extras:{}};
+let btDevice=null, btCharacteristic=null;
 
 const money=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
 function nextOrder(){
  const d=new Date(), key='pizza_last_'+d.toISOString().slice(0,10);
  const n=(parseInt(localStorage.getItem(key)||'0',10)+1);
@@ -140,6 +146,7 @@ function renderPizzas(){
    renderPizzas();renderSummary();
  }));
 }
+
 function renderExtras(){
  const el=document.getElementById('extras');el.innerHTML='';
  extras.forEach(x=>{
@@ -150,78 +157,181 @@ function renderExtras(){
   el.appendChild(row);
  });
 }
+
 function changeExtra(id,delta){state.extras[id]=Math.max(0,(state.extras[id]||0)+delta);if(!state.extras[id])delete state.extras[id];renderExtras();renderSummary()}
+
 function lines(){
  const out=[];
- pizzas.forEach(p=>{const a=state.pizzas[p.id]?.flavors||[];if(a.length)out.push({text:`${p.id} - ${a.join(' / ')}`,price:p.price})});
+ pizzas.forEach(p=>{const a=state.pizzas[p.id]?.flavors||[];if(a.length)out.push({text:`PIZZA ${p.id} - ${a.join(' / ')}`,price:p.price})});
  extras.forEach(x=>{const q=state.extras[x.id]||0;for(let i=0;i<q;i++)out.push({text:x.name,price:x.price})});
  return out;
 }
+
 function total(){return lines().reduce((s,x)=>s+x.price,0)}
+
 function renderSummary(){
  const ls=lines(),el=document.getElementById('summary');
  el.innerHTML=ls.length?ls.map(x=>`<div class="items"><div>${x.text}</div><strong style="text-align:right">${money(x.price)}</strong></div>`).join(''):'<div class="muted">Nenhum item selecionado.</div>';
  document.getElementById('total').textContent=money(total());
 }
-function buildTicket(){
+
+function buildTicketText(){
  const no=document.getElementById('orderNo').value.trim()||'---';
- const customer=document.getElementById('customer').value.trim()||'NÃO INFORMADO';
+ const customer=document.getElementById('customer').value.trim()||'NAO INFORMADO';
  const note=document.getElementById('note').value.trim();
+ const storeName=menu.store||'CLUBE DA PIZZA';
  const now=new Date().toLocaleString('pt-BR');
- let s='       PEDIDO - COZINHA\\n';
- s+='================================\\n';
- s+=`PEDIDO Nº ${no}\\n`;
- s+=`CLIENTE: ${customer}\\n`;
- s+=`DATA: ${now}\\n`;
- s+='--------------------------------\\n';
- lines().forEach(x=>s+=`${x.text}\\n${money(x.price).padStart(31)}\\n`);
- if(note){s+='--------------------------------\\nOBS: '+note+'\\n'}
- s+='--------------------------------\\n';
- s+=`VALOR TOTAL${money(total()).padStart(21)}\\n`;
- s+='================================\\n';
+
+ let s = `      ${storeName}\n`;
+ s += `================================\n`;
+ s += `PEDIDO Nº ${no}\n`;
+ s += `CLIENTE: ${customer}\n`;
+ s += `DATA: ${now}\n`;
+ s += `--------------------------------\n`;
+ lines().forEach(x => {
+   let pStr = money(x.price);
+   let space = 32 - x.text.length - pStr.length;
+   if(space > 0){
+     s += x.text + ' '.repeat(space) + pStr + '\n';
+   } else {
+     s += x.text + '\n' + pStr.padStart(32) + '\n';
+   }
+ });
+ if(note){
+   s += `--------------------------------\nOBS: ${note}\n`;
+ }
+ s += `--------------------------------\n`;
+ s += `TOTAL: ${money(total())}\n`;
+ s += `================================\n\n\n`;
  return s;
 }
+
+async function connectBT(){
+ if (!navigator.bluetooth) {
+   toast('Navegador sem suporte a Web Bluetooth.');
+   return;
+ }
+ try {
+   toast('Buscando JP58H...');
+   btDevice = await navigator.bluetooth.requestDevice({
+     acceptAllDevices: true,
+     optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', '49535343-fe7d-41a3-8c53-0d02c7f947e0']
+   });
+   const server = await btDevice.gatt.connect();
+   const services = await server.getPrimaryServices();
+   for (let service of services) {
+     const characteristics = await service.getCharacteristics();
+     for (let c of characteristics) {
+       if (c.properties.write || c.properties.writeWithoutResponse) {
+         btCharacteristic = c;
+         break;
+       }
+     }
+     if (btCharacteristic) break;
+   }
+   if (btCharacteristic) {
+     const btn = document.getElementById('btConnectBtn');
+     btn.textContent = '🟢 JP58H Conectada';
+     btn.style.background = '#15803d';
+     toast('Impressora conectada com sucesso!');
+   } else {
+     toast('Serviço de escrita não encontrado.');
+   }
+ } catch (err) {
+   console.error(err);
+   toast('Falha ao conectar Bluetooth.');
+ }
+}
+
+async function sendBT(text) {
+ if (!btCharacteristic) return false;
+ try {
+   const encoder = new TextEncoder();
+   // ESC/POS Reset + Texto em Byte Array
+   const init = new Uint8Array([27, 64]);
+   await btCharacteristic.writeValue(init);
+   const data = encoder.encode(text);
+   
+   // Envia em blocos de 20 bytes (limite padrão do Bluetooth LE)
+   for (let i = 0; i < data.length; i += 20) {
+     const chunk = data.slice(i, i + 20);
+     await btCharacteristic.writeValue(chunk);
+   }
+   // Corte do papel / avanço de linha ESC/POS
+   const cut = new Uint8Array([27, 100, 4]);
+   await btCharacteristic.writeValue(cut);
+   return true;
+ } catch (err) {
+   console.error('Erro na impressão Bluetooth:', err);
+   return false;
+ }
+}
+
 function validate(){
  if(!document.getElementById('customer').value.trim()){toast('Informe o nome do cliente.');return false}
  if(!lines().length){toast('Adicione pelo menos um produto.');return false}
  return true;
 }
-function finalizeOrder(){
+
+async function finalizeOrder(){
  if(!validate())return;
- const ticket=buildTicket();
- document.getElementById('ticketPrint').textContent=ticket;
+ const ticket = buildTicketText();
+ 
  const h=JSON.parse(localStorage.getItem('pizza_history')||'[]');
  h.unshift({no:document.getElementById('orderNo').value,customer:document.getElementById('customer').value,total:total(),ticket,date:new Date().toISOString()});
  localStorage.setItem('pizza_history',JSON.stringify(h.slice(0,50)));
  renderHistory();
+
+ if (btCharacteristic) {
+   toast('Enviando para JP58H...');
+   const success = await sendBT(ticket);
+   if (success) {
+     toast('Impresso com sucesso!');
+     clearOrder();
+     return;
+   } else {
+     toast('Erro ao imprimir via Bluetooth. Usando impressão padrão...');
+   }
+ }
+ 
+ document.getElementById('ticketPrint').textContent = ticket;
  window.print();
+ clearOrder();
 }
-function printPreview(){if(!validate())return;document.getElementById('ticketPrint').textContent=buildTicket();window.print()}
+
+function printPreview(){if(!validate())return;document.getElementById('ticketPrint').textContent=buildTicketText();window.print()}
+
 function renderHistory(){
  const h=JSON.parse(localStorage.getItem('pizza_history')||'[]'),el=document.getElementById('history');
  el.innerHTML=h.length?h.slice(0,10).map(x=>`<div class="history-row"><span><strong>#${x.no}</strong> ${x.customer}<br><span class="muted">${new Date(x.date).toLocaleString('pt-BR')}</span></span><strong>${money(x.total)}</strong></div>`).join(''):'<span class="muted">Nenhum pedido registrado.</span>';
 }
+
 function clearOrder(){state={pizzas:{},extras:{}};document.getElementById('orderNo').value=nextOrder();document.getElementById('customer').value='';document.getElementById('note').value='';renderPizzas();renderExtras();renderSummary()}
-function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2500)}
+
 function loadConfigUI(){
  document.getElementById('cfgP').value=pizzas.find(x=>x.id==='P').price;
  document.getElementById('cfgM').value=pizzas.find(x=>x.id==='M').price;
  document.getElementById('cfgG').value=pizzas.find(x=>x.id==='G').price;
- document.getElementById('cfgStore').value=menu.store||'PIZZARIA';
+ document.getElementById('cfgStore').value=menu.store||'CLUBE DA PIZZA';
  document.getElementById('cfgFlavors').value=flavors.join('\n');
  document.getElementById('cfgExtras').value=extras.map(x=>x.name+'|'+x.price).join('\n');
 }
+
 function saveConfig(){
  pizzas.find(x=>x.id==='P').price=Number(document.getElementById('cfgP').value)||37;
  pizzas.find(x=>x.id==='M').price=Number(document.getElementById('cfgM').value)||62;
  pizzas.find(x=>x.id==='G').price=Number(document.getElementById('cfgG').value)||75;
- menu.store=document.getElementById('cfgStore').value.trim()||'PIZZARIA';
+ menu.store=document.getElementById('cfgStore').value.trim()||'CLUBE DA PIZZA';
  menu.flavors=document.getElementById('cfgFlavors').value.split('\n').map(x=>x.trim().toUpperCase()).filter(Boolean);
  menu.extras=document.getElementById('cfgExtras').value.split('\n').map((x,i)=>{let p=x.split('|');return {id:'custom-'+i,name:(p[0]||'').trim().toUpperCase(),price:Number((p[1]||0).replace(',','.'))||0}}).filter(x=>x.name);
  pizzas=menu.pizzas;flavors=menu.flavors;extras=menu.extras;
  localStorage.setItem('pizza_menu_v2',JSON.stringify(menu));
- renderPizzas();renderExtras();renderSummary();loadConfigUI();toast('Cardápio salvo neste aparelho.');
+ renderPizzas();renderExtras();renderSummary();loadConfigUI();
+ document.getElementById('appTitle').textContent = '🍕 ' + menu.store;
+ toast('Cardápio salvo.');
 }
+
 loadConfigUI();
 renderPizzas();renderExtras();renderSummary();renderHistory();
 </script>
