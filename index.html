@@ -50,10 +50,9 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
 <main class="no-print">
   <!-- MÓDULO IMPORTAR WHATSAPP -->
   <div class="card" style="border: 1px solid #10b981; background: #f0fdf4;">
-    <h2 style="color: #047857;">📲 Importar do WhatsApp</h2>
-    <label>Cole o texto da mensagem do cliente aqui:</label>
-    <textarea id="waText" placeholder="Exemplo:&#10;Nome: João&#10;Pizza G Calabresa e Frango&#10;1 Coca Zero 2L&#10;Obs: Pouca cebola"></textarea>
-    <button class="wa" onclick="parseWhatsAppText()">PROCESSAR E PREENCHER</button>
+    <h2 style="color: #047857;">📲 Importação Rápida WhatsApp</h2>
+    <button class="wa" onclick="pasteFromClipboard()">📋 PEGAR DO WHATSAPP E PREENCHER</button>
+    <textarea id="waText" style="margin-top:8px; display:none;" placeholder="Texto importado aparecerá aqui..."></textarea>
   </div>
 
   <div class="card">
@@ -183,32 +182,36 @@ function renderSummary(){
  document.getElementById('total').textContent=money(total());
 }
 
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    document.getElementById('waText').value = text;
+    parseWhatsAppText();
+  } catch (err) {
+    toast('Permissão de colar negada pelo navegador.');
+  }
+}
+
 function parseWhatsAppText(){
  const raw = document.getElementById('waText').value;
- if(!raw.trim()){ toast('Cole o texto da mensagem primeiro.'); return; }
+ if(!raw.trim()){ toast('Nenhum texto capturado.'); return; }
  
  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
  let foundCustomer = '', foundObs = [];
  
- // Reinicia seleção
  state={pizzas:{},extras:{}};
 
  lines.forEach(line => {
    const upper = line.toUpperCase();
 
-   // Identifica Nome
-   if(upper.includes('NOME:') || upper.includes('CLIENTE:')){
+   if(upper.includes('CLIENTE:')){
      foundCustomer = line.split(':')[1]?.trim() || '';
-   } else if(!foundCustomer && !upper.includes('PIZZA') && !upper.includes('OBS') && lines.indexOf(line)===0){
-     foundCustomer = line;
    }
 
-   // Identifica Observação
    if(upper.includes('OBS:') || upper.includes('ENTREGAR') || upper.includes('RUA')){
      foundObs.push(line.replace(/OBS:/i, '').trim());
    }
 
-   // Identifica Tamanho da Pizza
    let pSize = null;
    if(upper.includes('PIZZA G') || upper.includes(' G ') || upper.endsWith(' G')) pSize = 'G';
    else if(upper.includes('PIZZA M') || upper.includes(' M ') || upper.endsWith(' M')) pSize = 'M';
@@ -225,7 +228,6 @@ function parseWhatsAppText(){
      });
    }
 
-   // Identifica Bebidas / Extras
    extras.forEach(x => {
      const nameClean = x.name.replace(/-/g, ' ');
      if(upper.includes(nameClean) || upper.includes(x.name)){
@@ -242,7 +244,7 @@ function parseWhatsAppText(){
  renderPizzas();
  renderExtras();
  renderSummary();
- toast('Texto do WhatsApp processado!');
+ toast('Pedido capturado com sucesso!');
 }
 
 function buildTicketText(){
