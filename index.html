@@ -65,7 +65,7 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
   </div>
 
   <div class="card">
-    <div class="section-title"><h2>2. Pizzas</h2><span class="muted">Preço automático pelo maior valor</span></div>
+    <div class="section-title"><h2>2. Pizzas</h2><span class="muted">2 sabores = 50% de cada sabor</span></div>
     <div id="pizzas"></div>
   </div>
 
@@ -150,16 +150,19 @@ function nextOrder(){
 }
 document.getElementById('orderNo').value=nextOrder();
 
+// CÁLCULO PROPORCIONAL DE 50% PARA CADA SABOR
 function getPizzaPrice(size, selectedFlavorNames) {
   if (!selectedFlavorNames || selectedFlavorNames.length === 0) return 0;
-  let maxP = 0;
+  
+  let totalPriceSum = 0;
   selectedFlavorNames.forEach(fn => {
     const fObj = flavors.find(x => x.name === fn);
-    if (fObj && fObj[size] > maxP) {
-      maxP = fObj[size];
+    if (fObj) {
+      totalPriceSum += fObj[size];
     }
   });
-  return maxP;
+  
+  return totalPriceSum / selectedFlavorNames.length;
 }
 
 function renderPizzas(){
@@ -169,7 +172,7 @@ function renderPizzas(){
   const pPrice = getPizzaPrice(p.id, selected);
   const box=document.createElement('div');box.className='pizza';
   box.innerHTML=`<div class="pizza-head"><strong>${p.name}</strong><span class="price">${pPrice > 0 ? money(pPrice) : 'A partir de ' + money(p.id==='P'?37:p.id==='M'?53:70)}</span></div>
-  <div class="muted" style="margin-top:4px">Escolha ${p.max===1?'1 sabor':'até 2 sabores'}</div>
+  <div class="muted" style="margin-top:4px">Escolha ${p.max===1?'1 sabor':'até 2 sabores (50% de cada)'}</div>
   <div class="flavors">${flavors.map(f=>`
     <label class="flavor">
       <div><input type="checkbox" data-p="${p.id}" data-f="${f.name}" ${selected.includes(f.name)?'checked':''}><strong>${f.name}</strong></div>
