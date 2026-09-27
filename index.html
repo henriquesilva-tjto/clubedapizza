@@ -18,16 +18,18 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:5px}
 input,select,textarea{width:100%;border:1px solid #d4d4d8;border-radius:10px;padding:11px;font:inherit;background:#fff}
 textarea{min-height:70px;resize:vertical}
 .section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.pizza{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.pizza{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:#fafafa}
 .pizza-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.price{font-weight:800}
 .flavors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
-.flavor{border:1px solid #d4d4d8;border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.flavor{border:1px solid #d4d4d8;border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:2px;font-size:13px;background:#fff}
 .flavor input{margin-right:6px}
 .items{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #f0f0f0}
 .qty{display:flex;align-items:center;justify-content:flex-end;gap:6px}.qty button{width:32px;height:32px;border:1px solid #d4d4d8;border-radius:8px;background:#fff;font-size:18px}
 .total{display:flex;justify-content:space-between;font-size:20px;font-weight:900;padding-top:12px}.muted{color:var(--muted);font-size:12px}
 button.primary{width:100%;border:0;border-radius:12px;background:#111;color:#fff;padding:14px;font-weight:800;font-size:16px;cursor:pointer}
 button.secondary{border:1px solid #d4d4d8;border-radius:10px;background:#fff;padding:10px 12px;font-weight:700;cursor:pointer}
+button.add-pizza{background:#111827;color:#fff;border:0;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}
+button.remove-pizza{background:#fee2e2;color:#b91c1c;border:0;padding:4px 8px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px}
 button.bt{background:#2563eb;color:#fff;border:0;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
 button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px;font-weight:800;width:100%;cursor:pointer;margin-top:8px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
@@ -65,8 +67,15 @@ button.wa{background:#059669;color:#fff;border:0;padding:12px;border-radius:10px
   </div>
 
   <div class="card">
-    <div class="section-title"><h2>2. Pizzas</h2><span class="muted">2 sabores = 50% de cada sabor</span></div>
-    <div id="pizzas"></div>
+    <div class="section-title">
+      <h2>2. Pizzas</h2>
+      <div style="display:flex; gap:6px;">
+        <button class="add-pizza" onclick="addPizzaInstance('P')">+ Pizza P</button>
+        <button class="add-pizza" onclick="addPizzaInstance('M')">+ Pizza M</button>
+        <button class="add-pizza" onclick="addPizzaInstance('G')">+ Pizza G</button>
+      </div>
+    </div>
+    <div id="pizzasContainer"></div>
   </div>
 
   <div class="card">
@@ -136,8 +145,9 @@ const defaultMenu = {
 };
 
 let menu = defaultMenu;
-let pizzas = menu.pizzas, flavors = menu.flavors, extras = menu.extras;
-let state = { pizzas: {}, extras: {} };
+let pizzasDef = menu.pizzas, flavors = menu.flavors, extras = menu.extras;
+let selectedPizzas = []; // Array de pizzas selecionadas: { uid, size, flavors: [] }
+let stateExtras = {};
 let btDevice = null, btCharacteristic = null;
 
 const money = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -150,10 +160,24 @@ function nextOrder(){
 }
 document.getElementById('orderNo').value=nextOrder();
 
-// CÁLCULO PROPORCIONAL DE 50% PARA CADA SABOR
+function addPizzaInstance(size) {
+  selectedPizzas.push({
+    uid: Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+    size: size,
+    flavors: []
+  });
+  renderPizzas();
+  renderSummary();
+}
+
+function removePizzaInstance(uid) {
+  selectedPizzas = selectedPizzas.filter(p => p.uid !== uid);
+  renderPizzas();
+  renderSummary();
+}
+
 function getPizzaPrice(size, selectedFlavorNames) {
   if (!selectedFlavorNames || selectedFlavorNames.length === 0) return 0;
-  
   let totalPriceSum = 0;
   selectedFlavorNames.forEach(fn => {
     const fObj = flavors.find(x => x.name === fn);
@@ -161,35 +185,49 @@ function getPizzaPrice(size, selectedFlavorNames) {
       totalPriceSum += fObj[size];
     }
   });
-  
   return totalPriceSum / selectedFlavorNames.length;
 }
 
 function renderPizzas(){
- const el=document.getElementById('pizzas'); el.innerHTML='';
- pizzas.forEach(p=>{
-  const selected = state.pizzas[p.id]?.flavors || [];
-  const pPrice = getPizzaPrice(p.id, selected);
+ const el=document.getElementById('pizzasContainer'); el.innerHTML='';
+ if (selectedPizzas.length === 0) {
+   el.innerHTML = '<div class="muted" style="text-align:center; padding:15px;">Nenhuma pizza adicionada. Clique nos botões acima para incluir pizzas (P, M ou G).</div>';
+   return;
+ }
+
+ selectedPizzas.forEach((p, idx)=>{
+  const pDef = pizzasDef.find(x => x.id === p.size);
+  const pPrice = getPizzaPrice(p.size, p.flavors);
   const box=document.createElement('div');box.className='pizza';
-  box.innerHTML=`<div class="pizza-head"><strong>${p.name}</strong><span class="price">${pPrice > 0 ? money(pPrice) : 'A partir de ' + money(p.id==='P'?37:p.id==='M'?53:70)}</span></div>
-  <div class="muted" style="margin-top:4px">Escolha ${p.max===1?'1 sabor':'até 2 sabores (50% de cada)'}</div>
+  box.innerHTML=`<div class="pizza-head">
+    <div><strong>${pDef.name} (#${idx+1})</strong> <button class="remove-pizza" onclick="removePizzaInstance('${p.uid}')">Remover</button></div>
+    <span class="price">${pPrice > 0 ? money(pPrice) : 'A partir de ' + money(p.size==='P'?37:p.size==='M'?53:70)}</span>
+  </div>
+  <div class="muted" style="margin-top:4px">Escolha ${pDef.max===1?'1 sabor':'até 2 sabores (50% de cada)'}</div>
   <div class="flavors">${flavors.map(f=>`
     <label class="flavor">
-      <div><input type="checkbox" data-p="${p.id}" data-f="${f.name}" ${selected.includes(f.name)?'checked':''}><strong>${f.name}</strong></div>
-      <div class="muted">${money(f[p.id])}</div>
+      <div><input type="checkbox" data-uid="${p.uid}" data-f="${f.name}" ${p.flavors.includes(f.name)?'checked':''}><strong>${f.name}</strong></div>
+      <div class="muted">${money(f[p.size])}</div>
     </label>`).join('')}</div>`;
   el.appendChild(box);
  });
+
  el.querySelectorAll('input[type=checkbox]').forEach(ch=>ch.addEventListener('change',e=>{
-   const p=e.target.dataset.p,f=e.target.dataset.f;
-   state.pizzas[p] ||= {flavors:[]};
-   let a=state.pizzas[p].flavors;
+   const uid=e.target.dataset.uid, f=e.target.dataset.f;
+   const pObj = selectedPizzas.find(x => x.uid === uid);
+   if (!pObj) return;
+   const pDef = pizzasDef.find(x => x.id === pObj.size);
+
    if(e.target.checked){
-     if(a.length>=pizzas.find(x=>x.id===p).max){e.target.checked=false;toast('Selecione no máximo '+pizzas.find(x=>x.id===p).max+' sabor(es).');return}
-     a.push(f);
-   } else a=a.filter(x=>x!==f);
-   state.pizzas[p].flavors=a;
-   if(!a.length) delete state.pizzas[p];
+     if(pObj.flavors.length >= pDef.max){
+       e.target.checked=false;
+       toast('Selecione no máximo '+pDef.max+' sabor(es).');
+       return;
+     }
+     pObj.flavors.push(f);
+   } else {
+     pObj.flavors = pObj.flavors.filter(x => x !== f);
+   }
    renderPizzas();renderSummary();
  }));
 }
@@ -197,7 +235,7 @@ function renderPizzas(){
 function renderExtras(){
  const el=document.getElementById('extras');el.innerHTML='';
  extras.forEach(x=>{
-  const q=state.extras[x.id]||0;
+  const q=stateExtras[x.id]||0;
   const row=document.createElement('div');row.className='items';
   row.innerHTML=`<div><strong>${x.name}</strong><div class="muted">${money(x.price)}</div></div>
   <div class="qty"><button onclick="changeExtra('${x.id}',-1)">−</button><strong>${q}</strong><button onclick="changeExtra('${x.id}',1)">+</button></div>`;
@@ -205,18 +243,17 @@ function renderExtras(){
  });
 }
 
-function changeExtra(id,delta){state.extras[id]=Math.max(0,(state.extras[id]||0)+delta);if(!state.extras[id])delete state.extras[id];renderExtras();renderSummary()}
+function changeExtra(id,delta){stateExtras[id]=Math.max(0,(stateExtras[id]||0)+delta);if(!stateExtras[id])delete stateExtras[id];renderExtras();renderSummary()}
 
 function lines(){
  const out=[];
- pizzas.forEach(p=>{
-   const a=state.pizzas[p.id]?.flavors||[];
-   if(a.length) {
-     const price = getPizzaPrice(p.id, a);
-     out.push({text:`PIZZA ${p.id} - ${a.join(' / ')}`, price: price});
+ selectedPizzas.forEach(p=>{
+   if(p.flavors.length) {
+     const price = getPizzaPrice(p.size, p.flavors);
+     out.push({text:`PIZZA ${p.size} - ${p.flavors.join(' / ')}`, price: price});
    }
  });
- extras.forEach(x=>{const q=state.extras[x.id]||0;for(let i=0;i<q;i++)out.push({text:x.name,price:x.price})});
+ extras.forEach(x=>{const q=stateExtras[x.id]||0;for(let i=0;i<q;i++)out.push({text:x.name,price:x.price})});
  return out;
 }
 
@@ -246,12 +283,13 @@ function parseWhatsAppText(){
  const raw = document.getElementById('waText').value;
  if(!raw.trim()){ toast('Cole o texto da mensagem primeiro.'); return; }
  
- const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+ const linesArr = raw.split('\n').map(l=>l.trim()).filter(Boolean);
  let foundCustomer = '', foundObs = [];
  
- state={pizzas:{},extras:{}};
+ selectedPizzas = [];
+ stateExtras = {};
 
- lines.forEach(line => {
+ linesArr.forEach(line => {
    const upper = line.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
    if(upper.includes('CLIENTE:')){
@@ -268,15 +306,21 @@ function parseWhatsAppText(){
    else if(upper.includes('PIZZA P') || upper.includes(' P ') || upper.endsWith(' P') || upper.includes('PEQUENA')) pSize = 'P';
 
    if(pSize){
-     state.pizzas[pSize] ||= {flavors:[]};
+     let matchedFlavors = [];
      flavors.forEach(f => {
        const fClean = f.name.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-       if(upper.includes(fClean) && state.pizzas[pSize].flavors.length < (pSize === 'P' ? 1 : 2)){
-         if(!state.pizzas[pSize].flavors.includes(f.name)){
-           state.pizzas[pSize].flavors.push(f.name);
-         }
+       if(upper.includes(fClean)){
+         matchedFlavors.push(f.name);
        }
      });
+
+     if (matchedFlavors.length > 0) {
+       selectedPizzas.push({
+         uid: Date.now() + '_' + Math.random().toString(36).substring(2, 5),
+         size: pSize,
+         flavors: matchedFlavors.slice(0, pSize === 'P' ? 1 : 2)
+       });
+     }
    }
 
    extras.forEach(x => {
@@ -284,7 +328,7 @@ function parseWhatsAppText(){
      if(upper.includes(nameClean)){
        const matchQty = line.match(/(\d+)\s*x?/i);
        const qty = matchQty ? parseInt(matchQty[1]) : 1;
-       state.extras[x.id] = (state.extras[x.id] || 0) + qty;
+       stateExtras[x.id] = (stateExtras[x.id] || 0) + qty;
      }
    });
  });
@@ -298,6 +342,7 @@ function parseWhatsAppText(){
  toast('Texto processado com sucesso!');
 }
 
+// FORMATO DE TICKET SEM VALORES UNITÁRIOS POR ITEM
 function buildTicketText(){
  const no=document.getElementById('orderNo').value.trim()||'---';
  const customer=document.getElementById('customer').value.trim()||'NAO INFORMADO';
@@ -312,13 +357,7 @@ function buildTicketText(){
  s += `DATA: ${now}\n`;
  s += `--------------------------------\n`;
  lines().forEach(x => {
-   let pStr = money(x.price);
-   let space = 32 - x.text.length - pStr.length;
-   if(space > 0){
-     s += x.text + ' '.repeat(space) + pStr + '\n';
-   } else {
-     s += x.text + '\n' + pStr.padStart(32) + '\n';
-   }
+   s += `${x.text}\n`;
  });
  if(note){
    s += `--------------------------------\nOBS: ${note}\n`;
@@ -427,7 +466,8 @@ function renderHistory(){
 }
 
 function clearOrder(){
- state={pizzas:{},extras:{}};
+ selectedPizzas = [];
+ stateExtras = {};
  document.getElementById('orderNo').value=nextOrder();
  document.getElementById('customer').value='';
  document.getElementById('note').value='';
